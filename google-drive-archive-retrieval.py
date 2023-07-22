@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # This module is meant to hold functionality to interact programatically with the archived files
 
 import requests
@@ -255,4 +256,8 @@ def recursive_download(folder, path=""):
 	
 	
 if __name__ == "__main__":
-	recursive_download(GoogleDriveFolder("SOME ID HERE PREVIOUSLY"))
+	import sys
+	if len(sys.argv) != 2:
+		print("Usage: ./google-drive-archive-retrieval.py [the file or folder ID you want to download to the current directory]")
+	else:
+		recursive_download(GoogleDriveFolder(sys.argv[1]))
