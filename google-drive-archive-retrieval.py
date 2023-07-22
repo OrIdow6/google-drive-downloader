@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # This module is meant to hold functionality to interact programatically with the archived files
+# SPDX-License-Identifier: AGPL-3.0-or-later
 
 import requests
 from functools import cache
