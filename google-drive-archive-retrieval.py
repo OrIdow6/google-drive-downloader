@@ -10,6 +10,7 @@ from urllib.parse import urljoin
 import re
 from html import unescape
 import logging
+from argparse import ArgumentParser
 
 WBM_BASE_URL = 'https://web.archive.org/web/'
 
@@ -44,17 +45,24 @@ class GoogleDriveFolder:
 	def __init__(self, folder_id: str, description_json = None):
 		self._fid = folder_id
 		if description_json:
+			if isinstance(description_json, str):
+				self.metadata_json_string = description_json
+				description_json = json.loads(description_json)
+			else:
+				self.metadata_json_string = json.dumps(description_json)
 			self._json = description_json
 		else:
 			r = self._get_info_json_raw()
-			self._json = r # TODO check for error
+			if r:
+				self.metadata_json_string = r.text
+				self._json = r.json()
+			else:
+				self.metadata_json_string = None
+				self._json = None
 	
 	def _get_info_json_raw(self):
-		r = get_from_wbm("https://clients6.google.com/drive/v2beta/files/" + self._fid + "?openDrive=false&reason=1001&syncType=0&errorRecovery=false&fields=kind%2CmodifiedDate%2CmodifiedByMeDate%2ClastViewedByMeDate%2CfileSize%2Cowners(kind%2CpermissionId%2Cid)%2ClastModifyingUser(kind%2CpermissionId%2Cid)%2ChasThumbnail%2CthumbnailVersion%2Ctitle%2Cid%2CresourceKey%2Cshared%2CsharedWithMeDate%2CuserPermission(role)%2CexplicitlyTrashed%2CmimeType%2CquotaBytesUsed%2Ccopyable%2CfileExtension%2CsharingUser(kind%2CpermissionId%2Cid)%2Cspaces%2Cversion%2CteamDriveId%2ChasAugmentedPermissions%2CcreatedDate%2CtrashingUser(kind%2CpermissionId%2Cid)%2CtrashedDate%2Cparents(id)%2CshortcutDetails(targetId%2CtargetMimeType%2CtargetLookupStatus)%2Ccapabilities(canCopy%2CcanDownload%2CcanEdit%2CcanAddChildren%2CcanDelete%2CcanRemoveChildren%2CcanShare%2CcanTrash%2CcanRename%2CcanReadTeamDrive%2CcanMoveTeamDriveItem)%2Clabels(starred%2Ctrashed%2Crestricted%2Cviewed)&supportsTeamDrives=true&retryCount=0&key=AIzaSyC1qbk75NzWBvSaDh6KnsjjA9pIrP4lYIE")
-		if r is None:
-			return None
-		else:
-			return r.json()
+		return get_from_wbm("https://clients6.google.com/drive/v2beta/files/" + self._fid + "?openDrive=false&reason=1001&syncType=0&errorRecovery=false&fields=kind%2CmodifiedDate%2CmodifiedByMeDate%2ClastViewedByMeDate%2CfileSize%2Cowners(kind%2CpermissionId%2Cid)%2ClastModifyingUser(kind%2CpermissionId%2Cid)%2ChasThumbnail%2CthumbnailVersion%2Ctitle%2Cid%2CresourceKey%2Cshared%2CsharedWithMeDate%2CuserPermission(role)%2CexplicitlyTrashed%2CmimeType%2CquotaBytesUsed%2Ccopyable%2CfileExtension%2CsharingUser(kind%2CpermissionId%2Cid)%2Cspaces%2Cversion%2CteamDriveId%2ChasAugmentedPermissions%2CcreatedDate%2CtrashingUser(kind%2CpermissionId%2Cid)%2CtrashedDate%2Cparents(id)%2CshortcutDetails(targetId%2CtargetMimeType%2CtargetLookupStatus)%2Ccapabilities(canCopy%2CcanDownload%2CcanEdit%2CcanAddChildren%2CcanDelete%2CcanRemoveChildren%2CcanShare%2CcanTrash%2CcanRename%2CcanReadTeamDrive%2CcanMoveTeamDriveItem)%2Clabels(starred%2Ctrashed%2Crestricted%2Cviewed)&supportsTeamDrives=true&retryCount=0&key=AIzaSyC1qbk75NzWBvSaDh6KnsjjA9pIrP4lYIE")
+
 	
 	def _list_folder(self):
 		to_get = "/drive/v2beta/files?openDrive=false&reason=102&syncType=0&errorRecovery=false&q=trashed%20%3D%20false%20and%20'" + self._fid + "'%20in%20parents&fields=kind%2CnextPageToken%2Citems(kind%2CmodifiedDate%2CmodifiedByMeDate%2ClastViewedByMeDate%2CfileSize%2Cowners(kind%2CpermissionId%2Cid)%2ClastModifyingUser(kind%2CpermissionId%2Cid)%2ChasThumbnail%2CthumbnailVersion%2Ctitle%2Cid%2CresourceKey%2Cshared%2CsharedWithMeDate%2CuserPermission(role)%2CexplicitlyTrashed%2CmimeType%2CquotaBytesUsed%2Ccopyable%2CfileExtension%2CsharingUser(kind%2CpermissionId%2Cid)%2Cspaces%2Cversion%2CteamDriveId%2ChasAugmentedPermissions%2CcreatedDate%2CtrashingUser(kind%2CpermissionId%2Cid)%2CtrashedDate%2Cparents(id)%2CshortcutDetails(targetId%2CtargetMimeType%2CtargetLookupStatus)%2Ccapabilities(canCopy%2CcanDownload%2CcanEdit%2CcanAddChildren%2CcanDelete%2CcanRemoveChildren%2CcanShare%2CcanTrash%2CcanRename%2CcanReadTeamDrive%2CcanMoveTeamDriveItem)%2Clabels(starred%2Ctrashed%2Crestricted%2Cviewed))%2CincompleteSearch&appDataFilter=NO_APP_DATA&spaces=drive&maxResults=50&supportsTeamDrives=true&includeItemsFromAllDrives=true&corpora=default&orderBy=folder%2Ctitle_natural%20asc&retryCount=0&key=AIzaSyC1qbk75NzWBvSaDh6KnsjjA9pIrP4lYIE"
@@ -94,6 +102,10 @@ class GoogleDriveFolder:
 		return f"Google Drive folder {self.fid}: \"{self.title}\""
 
 
+def sanatize_name(name):
+	return "".join(filter(lambda c: c != "/" and c != '\x00', name))[:255]
+
+
 class GoogleDriveFile:
 	
 	def __init__(self, file_id: str, metadata_json=None):
@@ -103,7 +115,10 @@ class GoogleDriveFile:
 		
 		if metadata_json:
 			if isinstance(metadata_json, str):
+				self.metadata_json_string = metadata_json
 				metadata_json = json.loads(metadata_json)
+			else:
+				self.metadata_json_string = json.dumps(metadata_json)
 			self._json = metadata_json
 			self._file_not_in_archive = False
 			if "error" in metadata_json:
@@ -122,6 +137,7 @@ class GoogleDriveFile:
 			self._404_at_archive_time = r is not None and r.status_code == 404
 			self._misc_error_during_archive = r is not None and r.status_code != 200
 			self._json = r.json() if r is not None else None
+			self.metadata_json_string = r.text if r is not None else None
 		
 		self._logger = logging.getLogger("ai.file." + self._fid)
 	
@@ -214,12 +230,14 @@ class GoogleDriveFile:
 	def save_body_to_path(self, path, skip_if_size_matches=False):
 		'''
 		Download the body and write it to the file given by path.
+		If skip_if_size_matches is set, it will skip downloading, and return true, if there is already a file at that location
+		with that size.
 		'''
-		path = Path(path) # If path is a string, wrap it; if already a Path, noop
+		path = Path(path)
 		if skip_if_size_matches:
 			if path.exists() and path.is_file():
 				if path.stat().st_size == int(self._json["fileSize"]):
-					return
+					return True
 		dlr = self.get_download_response()
 		if dlr is None:
 			raise FileNotFoundError(f"Cannot find a saved response for this file (id={self._fid}).")
@@ -227,15 +245,29 @@ class GoogleDriveFile:
 			for chunk in dlr.iter_content(1024 * 1024):
 				self._logger.debug("Writing chunk to file")
 				f.write(chunk)
-	
+
+		if skip_if_size_matches:
+			return False
+
 	def __str__(self):
 		return f'Google Drive file {self._fid}: "{self.title}"'
 
 import os
-def recursive_download(folder, path=""):
-	def sanatize_name(name):
-		return "".join(filter(lambda c: c != "/" and c != '\x00', name))[:255]
-	
+
+def nice_download_file(item, parent_path, bypass_checks=False):
+	if not bypass_checks and not item.is_probably_downloadable():
+		_, reason = item.is_probably_downloadable(True)
+		print("Excluding item {item_path} because {reason}")
+	else:
+		try:
+			dest = Path(parent_path) / Path(sanatize_name(item.title))
+			did_skip = item.save_body_to_path(dest, True)
+			if did_skip:
+				print(f"Skipped {dest} as it has already been downloaded")
+		except FileNotFoundError:
+			print(f"Error saving file ({item}) - download not found")
+
+def recursive_download(folder, path="", bypass_checks=False):
 	path = path + sanatize_name(folder.title) + "/"
 	
 	print("DLing at " + path)
@@ -243,22 +275,45 @@ def recursive_download(folder, path=""):
 
 	for item in folder:
 		if isinstance(item, GoogleDriveFile):
-			item_path = path + sanatize_name(item.title)
-			if not item.is_probably_downloadable():
-				_, reason = item.is_probably_downloadable(True)
-				print("Excluding item {item_path} because {reason}")
-			else:
-				try:
-					item.save_body_to_path(item_path, True)
-				except FileNotFoundError:
-					print(f"Error saving file ({item}) - download not found")
+			nice_download_file(item, path, bypass_checks)
 		else:
 			recursive_download(item, path)
 	
 	
 if __name__ == "__main__":
-	import sys
-	if len(sys.argv) != 2:
-		print("Usage: ./google-drive-archive-retrieval.py [the file or folder ID you want to download to the current directory]")
-	else:
-		recursive_download(GoogleDriveFolder(sys.argv[1]))
+	parser = ArgumentParser(prog="Google Drive archive retrieval.py", description="Allows you to access Google Drive files and folders archived by ArchiveTeam", epilog="Questions about this script or suggestions for material to save? Come to ircs://irc.hackint.org#googlecrash")
+	parser.add_argument("--force", action="store_true", help="Bypass checks for whether an item is likely in the archive")
+	parser.add_argument('item', nargs="+", help="URL of archived item, or file:[id] or folder:[id]")
+	parser.add_argument("--base-dir", help="Base directory to download to", default="")
+	
+	action_type_group = parser.add_mutually_exclusive_group()
+	action_type_group.add_argument('--json', action="store_true", help="Print the item's metadata JSON instead of downloading it")
+	action_type_group.add_argument('--new-location', action="store_true", help="Try to find and print the item's new live-web location instead of downloading it")
+	
+	args = parser.parse_args()
+
+	for item in args.item:
+		if match := re.match("^file:([^/? ]+)$", item) or re.match("^(?:https?://)?drive\.google\.com/file/d/([^/? ]+)/", item):
+			id = match.group(1)
+			f = GoogleDriveFile(id)
+			f_type = "file"
+			if not (args.json or args.new_location):
+				nice_download_file(f, args.base_dir, args.force)
+
+		if match := re.match("^folder:([^/? ]+)$", item) or re.match("^(?:https?://)?drive\.google\.com/drive/folders/([^/? ]+)[/\?]", item):
+			id = match.group(1)
+			f = GoogleDriveFolder(id)
+			f_type = "folder"
+			if not (args.json or args.new_location):
+				recursive_download(f, args.base_dir, args.force)
+
+		if args.json:
+			print(f.metadata_json_string)
+		if args.new_location:
+			if rk := json.loads(f.metadata_json_string)["resourceKey"]:
+				if f_type == "file":
+					print(f"https://drive.google.com/file/d/{f}/view?resourcekey={rk}")
+				else:
+					print(f"https://drive.google.com/drive/folders/{id}?resourcekey={rk}")
+			else:
+				print(f"RK not found for {f_type}:{id}")
